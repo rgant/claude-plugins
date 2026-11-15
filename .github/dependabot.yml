@@ -1,0 +1,14 @@
+version: 2
+updates:
+  # The workflow pins each action to a commit SHA, with the version in a
+  # trailing comment. Dependabot reads that comment and opens a PR that moves
+  # the SHA and the comment together. The actionlint image in the lint job is
+  # a `docker run`, so Dependabot does not see it.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns:
+          - "*"
