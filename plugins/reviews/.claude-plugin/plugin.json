@@ -1,0 +1,7 @@
+{
+  "name": "reviews",
+  "description": "Second-opinion code reviews from other models.",
+  "author": {
+    "name": "J Rob Gant"
+  }
+}
