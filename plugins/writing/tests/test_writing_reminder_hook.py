@@ -9,6 +9,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 HOOK = ROOT / "hooks" / "writing-reminder-hook.py"
+sys.path.insert(0, str(ROOT / "skills" / "reviewing-edit-feedback"))
+from extract_feedback import PASTE_BACK  # noqa: E402
 
 
 def context(plugin_root: str) -> str:
@@ -30,7 +32,8 @@ def main() -> None:
             "<writing_standards>" in got and "</writing_standards>" in got,
         ),
         ("standards pointer", "/plugins/writing/standards.md" in got),
-        ("short", len(got.split()) <= 120),
+        ("short", len(got.split()) <= 140),
+        ("paste-back rule", PASTE_BACK in got),
         ("core guide pointer", "/plugins/writing/guides/explanations-core.md" in got),
         ("full guide pointer", "/plugins/writing/guides/explanations.md" in got),
         ("names both registers", "procedure" in got and "explanation" in got),

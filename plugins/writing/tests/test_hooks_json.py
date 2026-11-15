@@ -11,6 +11,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from datetime import UTC, datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -23,6 +24,7 @@ DIRTY = (
 CASES = {
     "UserPromptSubmit": ({"prompt": "hello"}, "<writing_standards>"),
     "PostToolUse": ({"tool_name": "Write", "tool_input": {"file_path": "notes.md", "content": DIRTY}}, "STE check"),
+    "SessionStart": ({"source": "startup"}, "writing:reviewing-edit-feedback"),
     "PreToolUse": (
         {"tool_name": "Bash", "session_id": "t", "tool_input": {"command": f'gh pr create --title "x" --body "{DIRTY}"'}},
         '"deny"',
@@ -36,7 +38,22 @@ def main() -> None:
         root = Path(tmp) / "plugin root"
         shutil.copytree(ROOT, root, ignore=shutil.ignore_patterns("__pycache__", "tests"))
         hooks = json.loads((root / "hooks" / "hooks.json").read_text())["hooks"]
-        env = dict(os.environ, CLAUDE_PLUGIN_ROOT=str(root), CLAUDE_PLUGIN_DATA=str(Path(tmp) / "data"))
+        matchers = [group.get("matcher") for group in hooks.get("SessionStart", [])]
+        if matchers != ["startup|resume"]:
+            failures += 1
+            print(f"FAIL SessionStart matcher  got={matchers}")
+        # A recent extraction time stops the SessionStart hook from starting a detached extraction,
+        # which could still write to the temporary directory when the test removes it.
+        store = Path(tmp) / "data" / "feedback"
+        store.mkdir(parents=True)
+        stamp = datetime.now(UTC).isoformat(timespec="seconds")
+        (store / "reminder.json").write_text(json.dumps({"last_extract": stamp}), encoding="utf-8")
+        env = dict(
+            os.environ,
+            CLAUDE_PLUGIN_ROOT=str(root),
+            CLAUDE_PLUGIN_DATA=str(Path(tmp) / "data"),
+            CLAUDE_CONFIG_DIR=str(Path(tmp) / "config"),
+        )
         for event, (payload, wanted) in CASES.items():
             for group in hooks[event]:
                 for hook in group["hooks"]:

@@ -76,6 +76,62 @@ reach the context.
 closest to a positive explanation standard. It has no examples, and it does not
 fit the hooks or the prose gate.
 
+**The feedback loop learns from edits, not from the user's own messages.** The
+`writing:reviewing-edit-feedback` skill compares each draft that Claude wrote
+with the text that the user sent. The user's own quick messages can carry
+spelling and punctuation errors that Claude must not copy, so they are not a
+source.
+
+**The feedback loop covers messages, PR descriptions, and ticket
+descriptions.** A commit message is out, because its main reader is a model. A
+PR comment, a review, and a ticket comment are out too. Docs and code comments
+wait for a later build, because an `Edit` holds only a fragment of a file, and
+that source carries the fewest edits.
+
+**The transcripts are the source, so no hook captures a draft.** A Claude Code
+transcript holds each reply and each tool call with its full input. Claude Code
+deletes a transcript after 30 days by default
+([claude-directory](https://code.claude.com/docs/en/claude-directory.md)). So
+the `SessionStart` hook starts the extraction once a day, and the pairs reach
+the store even if the user skips reviews. The hook runs on startup and on resume
+only, because a reminder after `/clear` or a compaction would interrupt work in
+progress.
+
+**A PR or a ticket keeps its first draft.** The user asks Claude for each later
+edit, so the requests between the first draft and the last edit are the
+feedback. A PR final waits until the PR is merged or closed, because the user
+can still edit an open PR. A ticket final waits 7 days, because a ticket has no
+state that marks the end of its edits.
+
+**A rule change needs more than one record with the same correction label.**
+One edit can be taste or a slip, and a rule for each edit would make the guides
+grow and conflict. The labels persist across reviews, because a weekly batch is
+small, and a correction often reaches a second record only in a later week.
+
+## Learning from edits
+
+The `writing:reviewing-edit-feedback` skill turns the user's edits to Claude's
+drafts into proposed rule changes.
+
+1. When Claude drafts a Slack or Teams message, paste the version you send back
+   into the session after `SENT>`.
+2. When the session-start reminder says a review is due, run
+   `/writing:reviewing-edit-feedback`.
+3. Approve or decline each proposal that the review shows.
+
+The store is `${CLAUDE_PLUGIN_DATA}/feedback`. It holds messages to coworkers
+and text from client repositories, so it never enters a repository.
+
+A ticket script belongs to its project, so the store holds a `tickets.json`
+that describes each one. `TicketTool` in
+[skills/reviewing-edit-feedback/extract_feedback.py](skills/reviewing-edit-feedback/extract_feedback.py)
+names the fields of each entry. If `tickets.json` is absent, the review skips
+tickets.
+
+Warning: copy the store before you uninstall the plugin. By default, an
+uninstall deletes the plugin data, and the store goes with it
+([plugins-reference](https://code.claude.com/docs/en/plugins-reference.md)).
+
 ## Adding an example
 
 An example in `guides/explanations.md` is public, so it must carry no private

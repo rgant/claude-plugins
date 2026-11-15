@@ -22,6 +22,7 @@ REMINDER = (
     "between people can use contractions, `should`, progressive, and present perfect.\n"
     "Match the length of a document to the task. Do not pad.\n"
     "Lead the final message with the outcome.\n"
+    "End a Slack or Teams draft with: Paste the sent version after SENT> so the writing review can learn.\n"
     "Read {standards} before you write a document, a plan, or a PR description. "
     "For a larger explanation, read {full}.\n"
     "</writing_standards>"
