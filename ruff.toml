@@ -1,0 +1,6 @@
+# Hooks and skill scripts run through `uv run --python ">=3.14"`, so 3.14 is the floor.
+target-version = "py314"
+line-length = 140
+
+[lint]
+select = ["E", "F", "W", "I", "UP", "B"]

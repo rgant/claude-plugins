@@ -1,0 +1,24 @@
+{
+  "name": "rgant",
+  "owner": {
+    "name": "J Rob Gant"
+  },
+  "description": "Rob Gant's Claude Code plugins.",
+  "plugins": [
+    {
+      "name": "writing",
+      "source": "./plugins/writing",
+      "description": "Writing standards in ASD-STE100 Simplified Technical English, with skills and hooks that apply them."
+    },
+    {
+      "name": "reviews",
+      "source": "./plugins/reviews",
+      "description": "Second-opinion code reviews from other models."
+    },
+    {
+      "name": "statusline",
+      "source": "./plugins/statusline",
+      "description": "A status line with the folder, git state, model, context use, and session tokens."
+    }
+  ]
+}

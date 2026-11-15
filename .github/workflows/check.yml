@@ -1,0 +1,57 @@
+name: check
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v10.3.3
+      - name: Ruff lint
+        run: uvx ruff@0.17.4 check .
+      - name: Ruff format
+        run: uvx ruff@0.17.4 format --check .
+      - name: Shellcheck
+        run: git ls-files -z '*.sh' | xargs -0 shellcheck
+      - name: Actionlint
+        run: docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.12 -color
+
+  tests:
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        # The hooks run through `uv run --python ">=3.14"`, so test the floor.
+        python: ["3.14"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v10.3.3
+      - name: Install Python
+        run: uv python install ${{ matrix.python }}
+      - name: Private paths
+        run: uv run --no-project --python ${{ matrix.python }} tests/test_no_private_paths.py
+      - name: Plugin tests
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          for test in plugins/*/tests/test_*.py; do
+            echo "== $test"
+            uv run --no-project --python ${{ matrix.python }} "$test"
+          done
+
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install Claude Code
+        run: npm install --global @anthropic-ai/claude-code@2.1.319
+      - name: Validate the marketplace and plugins
+        run: claude plugin validate .
