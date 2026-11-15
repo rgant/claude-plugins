@@ -1,0 +1,7 @@
+{
+  "name": "statusline",
+  "description": "A status line with the folder, git state, model, context use, and session tokens.",
+  "author": {
+    "name": "J Rob Gant"
+  }
+}
