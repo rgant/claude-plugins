@@ -32,7 +32,8 @@ the default branch. Staged, unstaged, and untracked files are all in scope.
 - A plan or a draft has no branch diff yet. Use `--files <path>` or pipe the
   draft to `--stdin`.
 - A review body, a PR comment, or a chat message is a message between people.
-  Add `--message`. It allows contractions and the progressive. Docs, comments,
+  Add `--message`. It allows contractions and the progressive, and in an
+  explanation the present perfect and `should`. Docs, comments,
   and PR descriptions never take it.
 - An agent instruction file never appears. `CLAUDE.md`, `AGENTS.md` and
   `GEMINI.md` address a model, not a person, and the style rules they carry are

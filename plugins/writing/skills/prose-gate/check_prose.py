@@ -40,11 +40,7 @@ CONTRACTION = re.compile(
     r"\b(\w+'(ll|re|ve|d)|can't|won't|don't|doesn't|didn't|isn't|aren't|wasn't|weren't|hasn't|haven't|it's|that's|there's|let's)\b",
     re.IGNORECASE,
 )
-_IRREGULAR = (
-    "been|run|written|done|made|taken|seen|gone|given|known|shown|put|set|read|sent|kept|held|left|found|built"
-    "|become|begun|brought|come|got|gotten"
-)
-PRESENT_PERFECT = re.compile(rf"\b(has|have|had)\s+(?:not\s+|never\s+)?({_IRREGULAR}|[a-z]+ed)\b", re.IGNORECASE)
+PRESENT_PERFECT = ste_lint.PERFECT
 PROGRESSIVE = re.compile(r"\b(is|are|was|were|be|been|being)\s+([a-z]+ing)\b", re.IGNORECASE)
 PARTICIPIAL = re.compile(r",\s+([a-z]+ing)\b")
 # After a form of "be", an "-ing" word is a verb for certain when nothing follows it, or when an
@@ -470,7 +466,9 @@ def inspect(sentence: str, *, message: bool = False, procedural: bool = False) -
     soft modals (would, could, might), and the em dash report as advisory rules.
 
     A *message* is text between people, such as a review body or a PR comment. It can use contractions
-    and the progressive, so neither reports.
+    and the progressive, so neither reports. An explanation in a message can also use the present
+    perfect and `should`, because a soft recommendation between peers is what the writer means. An
+    instruction in a message keeps the strict limits on both.
     """
     found: list[tuple[str, str]] = []
     bare = CODE_SPAN.sub("X", sentence)
@@ -479,7 +477,7 @@ def inspect(sentence: str, *, message: bool = False, procedural: bool = False) -
         found.append(("LENGTH", f"{count} words, limit {MAX_PROCEDURAL}"))
     elif not procedural and count > MAX_DESCRIPTIVE:
         found.append(("LENGTH-READ", f"{count} words, limit {MAX_DESCRIPTIVE}"))
-    firm = register.FIRM_MODALS.search(bare)
+    firm = register.firm_modals(message=message, procedural=procedural).search(bare)
     soft = register.SOFT_MODALS.search(bare)
     # In a procedure every modal is hard, so one finding covers the sentence.
     if firm:
@@ -490,7 +488,7 @@ def inspect(sentence: str, *, message: bool = False, procedural: bool = False) -
         ("SEMICOLON", SEMICOLON),
         ("EM-DASH" if procedural else "EM-DASH-READ", EM_DASH),
         ("CONTRACTION", None if message else CONTRACTION),
-        ("PRESENT-PERFECT", PRESENT_PERFECT),
+        ("PRESENT-PERFECT", ste_lint.PERFECT_ANY if procedural else None if message else PRESENT_PERFECT),
         ("LATIN", LATIN),
         ("AND-OR", AND_OR),
         ("SLOP", SLOP),
@@ -562,7 +560,10 @@ def main(argv: list[str] | None = None) -> int:
     _ = parser.add_argument(
         "--message",
         action="store_true",
-        help="the text is a message between people (a review body, a comment): allow contractions and the progressive",
+        help=(
+            "the text is a message between people (a review body, a comment): allow contractions, the progressive,"
+            " and in an explanation the present perfect and `should`"
+        ),
     )
     args = parser.parse_args(argv)
 

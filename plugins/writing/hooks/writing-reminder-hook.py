@@ -18,8 +18,8 @@ REMINDER = (
     "Each sentence is a procedure or an explanation. A procedure (an instruction, a step, a warning) keeps strict "
     "ASD-STE100: imperative, at most 20 words, modals `can`, `will`, and `must` only, condition before command. An "
     "explanation (what a system does and why) names how facts relate, uses `would` for an unreal case, and follows "
-    '{core}. In both: simple tenses, no semicolons, no `should` or `may`, no trailing ", -ing" clause. A message '
-    "between people can use contractions and the progressive.\n"
+    '{core}. In both: simple tenses, no semicolons, no `should` or `may`, no trailing ", -ing" clause. Messages '
+    "between people can use contractions, `should`, progressive, and present perfect.\n"
     "Match the length of a document to the task. Do not pad.\n"
     "Lead the final message with the outcome.\n"
     "Read {standards} before you write a document, a plan, or a PR description. "

@@ -376,7 +376,8 @@ This step is not optional. Run these four checks on your draft:
 2. Search your draft for: `'ll`, `'re`, `'s` (contraction), `has been`,
    `have been`, `should`, `-ing` verbs after a comma, semicolons. A message
    between people (a review body, a PR comment, a chat message) can keep its
-   contractions and progressive verbs.
+   contractions and progressive verbs. An explanation in it can also keep
+   present perfect verbs and `should`.
 3. Search for every `if` and `when`. Each one stands at the START of its
    sentence, before the command. "Increase the timeout if the network is slow" →
    "If the network is slow, increase the timeout."

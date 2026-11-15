@@ -149,7 +149,7 @@ REVIEW_CLEAN = adf_path(
 )
 REVIEW_DIRTY_BODY = adf_path(
     "review-dirty-body.json",
-    {"event": "COMMENT", "body": "This should merge.", "comments": []},
+    {"event": "COMMENT", "body": "This may merge.", "comments": []},
 )
 REVIEW_DIRTY_COMMENT = adf_path(
     "review-dirty-comment.json",
@@ -267,10 +267,22 @@ CASES = [
     ("pr edit no body", f"{G} pr edit 5 --add-label bug", "i", "pass"),
     (
         "short body, modal",
-        f'{G} pr comment 5 --body "This should be split."',
+        f'{G} pr comment 5 --body "This may be split."',
         "j",
         "DENY",
     ),
+    ("comment can use should", f'{G} pr comment 5 --body "This should be split."', "j2", "pass"),
+    ("comment instruction keeps should ban", f'{G} pr comment 5 --body "Run it and you should see a pass."', "j3", "DENY"),
+    ("comment can use present perfect", f'{G} pr comment 5 --body "I have requested edit access."', "j4", "pass"),
+    ("pr body present perfect", pr_body("The team has built the tests."), "j5", "DENY"),
+    ("pr body past perfect", pr_body("The team had built the tests."), "j6", "pass"),
+    ("pr body unreal past", pr_body("The variables would have been documented in the first PR."), "j7", "pass"),
+    ("pr body negated unreal past", pr_body("The variables would not have been documented in the first PR."), "j8", "pass"),
+    ("pr body noun after has", pr_body("The service has speed limits."), "j9", "pass"),
+    ("pr body adverb in present perfect", pr_body("The team has already built the image."), "j11", "DENY"),
+    ("pr body modal and adverb before have", pr_body("The tool would also have been slow."), "j12", "pass"),
+    ("comment instruction keeps perfect ban", f'{G} pr comment 5 --body "Install the tool that has been built."', "j13", "DENY"),
+    ("pr body procedure past perfect", pr_body("## Test plan\n\n1. Run the suite after you had built the image.\n"), "j10", "DENY"),
     (
         "acli search",
         f'{A} jira workitem search --jql "project = PROJ" --json',
@@ -351,7 +363,7 @@ CASES = [
     ),
     (
         "review still blocks modal",
-        f'{G} pr review 9 --comment --body "This shouldn\'t merge yet."',
+        f'{G} pr review 9 --comment --body "This may not merge yet."',
         "y",
         "DENY",
     ),
@@ -422,6 +434,14 @@ def main() -> None:
         if got != expected:
             failures += 1
         print(f"{mark} {name:22s} expected={expected:6s} got={got}")
+
+    # A message can use `should`, so a denial for `may` quotes `may` alone.
+    quoted = reason(f'{G} pr comment 5 --body "This should merge. It may break the build."', "quote-modal")
+    ok = "banned_modal 1 (may)" in quoted
+    mark = "ok " if ok else "FAIL"
+    if not ok:
+        failures += 1
+    print(f"{mark} message quotes only the denied modal  got={quoted[:160]!r}")
 
     hatch = [run(DIRTY_HEREDOC, "z") for _ in range(4)]
     expected_hatch = ["DENY", "DENY", "ALLOW+CTX", "DENY"]

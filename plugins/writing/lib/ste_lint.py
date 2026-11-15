@@ -12,7 +12,12 @@ Local change on top of the vendored file: strip_code exempts a bold-only line
 the same way it exempts an ATX heading. BANNED_MODALS also matches the negative
 contraction ("shouldn't"), because a message may keep its contractions.
 strip_fences reads a fenced block line by line, so a long fence that holds a
-triple backtick stays code. Re-apply all three after a refresh.
+triple backtick stays code. PERFECT matches the present perfect only, with
+the irregular participles that the prose gate needs, so the gate and the hooks
+share one pattern. PERFECT_ANY keeps every perfect form for a procedure, and
+lint() uses it for the procedural type. check_prose.py and the hooks import
+both patterns, so a refresh that drops one breaks them at load time. Re-apply
+each local change after a refresh.
 
 Counts mechanical violations that a regex can catch: sentence length,
 contractions, banned modals, perfect tenses, "-ing" clauses, semicolons,
@@ -35,7 +40,27 @@ import re
 import sys
 
 BANNED_MODALS = re.compile(r"\b(should|would|may|might|could)(?:n't)?\b", re.IGNORECASE)
-PERFECT = re.compile(r"\b(has|have|had)\s+been\b|\b(has|have)\s+\w+ed\b", re.IGNORECASE)
+_IRREGULAR = (
+    "been|run|written|done|made|taken|seen|gone|given|known|shown|put|set|read|sent|kept|held|left|found|built"
+    "|become|begun|brought|come|got|gotten"
+)
+# Each of these nouns ends in "ed", so "has need" or "has speed limits" would read as a perfect.
+_ED_NOUNS = "need|speed|seed|feed|weed|greed|breed|creed|deed|reed|steed|bed|red"
+_PARTICIPLE = rf"(?!(?:{_ED_NOUNS})\b)({_IRREGULAR}|[a-z]+ed)"
+# An adverb can stand between the auxiliary and the participle, as in `has not yet started`.
+_ADVERBS = ("not", "never", "yet", "already", "also", "just", "ever", "recently", "always", "still", "now", "only", "indeed")
+_BETWEEN = rf"(?:(?:{'|'.join(_ADVERBS)})\s+){{0,2}}"
+# PERFECT matches the present perfect only. `had` opens the past perfect, and a modal or `to`
+# before `have` opens a conditional or an infinitive form, such as the unreal past `would have
+# been` or `might also have run`. Python needs a fixed width in a lookbehind, so each modal, alone
+# and with each adverb, has its own.
+_MODALS = ("would", "could", "might", "must", "should", "will", "shall", "may", "to", "'d")
+_NOT_AFTER = "".join(
+    rf"(?<!{prefix}\s)(?<!{prefix}\s{adverb}\s)" for prefix in (rf"\b{m}" if m[0].isalpha() else m for m in _MODALS) for adverb in _ADVERBS
+)
+PERFECT = re.compile(rf"{_NOT_AFTER}\b(has|have)\s+{_BETWEEN}{_PARTICIPLE}\b", re.IGNORECASE)
+# STE allows only the simple tenses in a procedure, so a procedure keeps every perfect form.
+PERFECT_ANY = re.compile(rf"\b(has|have|had)\s+{_BETWEEN}{_PARTICIPLE}\b", re.IGNORECASE)
 CONTRACTION = re.compile(r"\b\w+(n't|'ll|'re|'ve|'d)\b|\bit's\b|\byou're\b", re.IGNORECASE)
 ING_CLAUSE = re.compile(
     r",\s*(mak|allow|enabl|ensur|highlight|creat|provid|offer|help|reduc|improv|lead|caus|result)ing\b",
@@ -126,7 +151,8 @@ def lint(text, text_type):
     counts["sentence_over_limit"] = sum(1 for n in lengths if n > limit)
     counts["contraction"] = len(CONTRACTION.findall(body))
     counts["banned_modal"] = len(BANNED_MODALS.findall(body))
-    counts["perfect_tense"] = len([m for m in PERFECT.finditer(body)])
+    perfect = PERFECT_ANY if text_type == "procedural" else PERFECT
+    counts["perfect_tense"] = len([m for m in perfect.finditer(body)])
     counts["ing_clause"] = len(ING_CLAUSE.findall(body))
     counts["semicolon"] = body.count(";")
     counts["latin_abbrev"] = len(LATIN.findall(body))

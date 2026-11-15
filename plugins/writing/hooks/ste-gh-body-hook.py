@@ -25,15 +25,17 @@ import os
 import re
 import sys
 import time
+from dataclasses import dataclass, field
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
-from register import FIRM_MODALS, classify
+from register import classify, firm_modals
 from ste_lint import (
     CONTRACTION,
     ING_CLAUSE,
     LATIN,
     PERFECT,
+    PERFECT_ANY,
     SLOP,
     lint,
     strip_code,
@@ -56,8 +58,9 @@ ACLI_WRITE = re.compile(
 )
 
 # Commands that post a message between people: a review, a PR or issue comment, a Jira comment.
-# A message can use contractions. A PR description, an issue body and a Jira description are
-# documents, so they keep the strict form.
+# A message can use contractions, and an explanation in it can use the present perfect and
+# `should`. A PR description, an issue body and a Jira description are documents, so they keep
+# the strict form.
 MESSAGE_WRITE = re.compile(
     r"\bgh\s+(?:pr|issue)\s+(?:comment|review)\b"
     r"|\bgh\s+api\b.*?/(?:pulls|issues)/\d+/(?:reviews|comments)\b"
@@ -118,13 +121,13 @@ BLOCKING = (
 # The longest part of the first flagged sentence that a denial quotes.
 QUOTE_LIMIT = 120
 
+# The patterns that find the words a denial quotes. `blocking_hits` adds the modal and perfect
+# patterns for each sentence, because those depend on the register of the sentence.
 EXAMPLE_PATTERNS = {
-    "banned_modal": FIRM_MODALS,
     "contraction": CONTRACTION,
     "latin_abbrev": LATIN,
     "slop_word": SLOP,
     "ing_clause": ING_CLAUSE,
-    "perfect_tense": PERFECT,
 }
 
 # A plugin update replaces the plugin folder, so the strike state lives in the plugin data folder.
@@ -279,38 +282,59 @@ def prepare(text: str) -> str:
     return MD_LINK_TARGET.sub("]", text)
 
 
-def blocking_hits(text: str, *, message: bool) -> tuple[dict[str, int], str]:
-    """Count the denying checks in *text*, and return the first sentence that breaks one.
+@dataclass
+class Hits:
+    """The denying checks that a body breaks."""
 
-    A *message* between people can use contractions, so they do not count in one.
+    counts: dict[str, int] = field(default_factory=dict)
+    # The words that broke each check, in order, as the denial quotes them.
+    words: dict[str, list[str]] = field(default_factory=dict)
+    first: str = ""
+
+
+def blocking_hits(text: str, *, message: bool) -> Hits:
+    """Count the denying checks in *text*, with the words and the first sentence that break them.
+
+    A *message* between people can use contractions, so they do not count in one. An explanation in
+    a message can also use the present perfect and `should`. Each word comes from a sentence that
+    the check counts, so a denial never quotes a word that the rules allow.
     """
-    hits: dict[str, int] = {}
-    first = ""
+    hits = Hits()
+    seen: dict[str, set[str]] = {}
     for sentence in classify(text):
-        violations = lint(sentence.text, "descriptive")["violations"]
+        stripped = strip_code(sentence.text)
+        register = "procedural" if sentence.procedural else "descriptive"
+        violations = lint(sentence.text, register)["violations"]
         found = {name: violations.get(name, 0) for name in BLOCKING}
-        found["banned_modal"] = len(FIRM_MODALS.findall(strip_code(sentence.text)))
+        modals = firm_modals(message=message, procedural=sentence.procedural)
+        patterns = {
+            **EXAMPLE_PATTERNS,
+            "banned_modal": modals,
+            "perfect_tense": PERFECT_ANY if sentence.procedural else PERFECT,
+        }
+        found["banned_modal"] = len(modals.findall(stripped))
         if message:
             found["contraction"] = 0
+            if not sentence.procedural:
+                found["perfect_tense"] = 0
         for name, number in found.items():
-            if number:
-                hits[name] = hits.get(name, 0) + number
-                first = first or sentence.text
-    return hits, first
+            if not number:
+                continue
+            hits.counts[name] = hits.counts.get(name, 0) + number
+            hits.first = hits.first or sentence.text
+            if name in patterns:
+                words = hits.words.setdefault(name, [])
+                lowered = seen.setdefault(name, set())
+                for match in patterns[name].finditer(stripped):
+                    word = match.group(0).strip()
+                    if word and word.lower() not in lowered:
+                        lowered.add(word.lower())
+                        words.append(word)
+    return hits
 
 
-def examples(name: str, text: str) -> str:
-    if name not in EXAMPLE_PATTERNS:
-        return ""
-    matches = list(EXAMPLE_PATTERNS[name].finditer(strip_code(text)))
-    found: list[str] = []
-    for match in matches:
-        word = match.group(0).strip()
-        if word and word.lower() not in [f.lower() for f in found]:
-            found.append(word)
-        if len(found) == 4:
-            break
-    return f" ({', '.join(found)})" if found else ""
+def examples(words: list[str]) -> str:
+    return f" ({', '.join(words[:4])})" if words else ""
 
 
 def strike_file(session: str, tool: str) -> Path:
@@ -345,8 +369,9 @@ def write_strikes(path: Path, count: int) -> None:
         pass
 
 
-def build_reason(hits: dict[str, int], text: str, first: str, tool: str) -> str:
-    counts = ", ".join(f"{name} {number}{examples(name, text)}" for name, number in sorted(hits.items()))
+def build_reason(hits: Hits, tool: str) -> str:
+    counts = ", ".join(f"{name} {number}{examples(hits.words.get(name, []))}" for name, number in sorted(hits.counts.items()))
+    first = hits.first
     quoted = first if len(first) <= QUOTE_LIMIT else first[:QUOTE_LIMIT].rstrip() + "..."
     lines = [
         f"STE check on the body you passed to {tool}. The command did not run.",
@@ -394,10 +419,10 @@ def main() -> None:
         return
 
     text = prepare("\n\n".join(bodies))
-    hits, first = blocking_hits(text, message=bool(MESSAGE_WRITE.search(command)))
+    hits = blocking_hits(text, message=bool(MESSAGE_WRITE.search(command)))
 
     path = strike_file(str(event.get("session_id", "")), tool)
-    if not hits:
+    if not hits.counts:
         write_strikes(path, 0)
         return
 
@@ -407,7 +432,7 @@ def main() -> None:
         emit(
             {
                 "additionalContext": (
-                    f"STE check still reports {sum(hits.values())} violations in this {tool} body. "
+                    f"STE check still reports {sum(hits.counts.values())} violations in this {tool} body. "
                     f"The hook allowed the command after {MAX_STRIKES} denials. Tell the user."
                 ),
             }
@@ -418,7 +443,7 @@ def main() -> None:
     emit(
         {
             "permissionDecision": "deny",
-            "permissionDecisionReason": build_reason(hits, text, first, tool),
+            "permissionDecisionReason": build_reason(hits, tool),
         }
     )
 

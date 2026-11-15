@@ -208,7 +208,17 @@ PROCEDURE_CALLOUTS = frozenset({"WARNING", "CAUTION", "DANGER"})
 # A firm modal states a requirement or a permission, so it stays banned in an explanation.
 # A soft modal reports a possibility, and an explanation needs it.
 FIRM_MODALS = re.compile(r"\b(should|may)(?:n't)?\b", re.IGNORECASE)
+# In an explanation inside a message between people, `should` is a soft recommendation between
+# peers, and the writer means it that way. `may` stays banned, because a reader cannot tell
+# permission from possibility.
+MESSAGE_FIRM_MODALS = re.compile(r"\b(may)(?:n't)?\b", re.IGNORECASE)
 SOFT_MODALS = re.compile(r"\b(would|could|might)(?:n't)?\b", re.IGNORECASE)
+
+
+def firm_modals(*, message: bool, procedural: bool) -> re.Pattern[str]:
+    """Return the pattern of the modals that break a rule in this kind of sentence."""
+    return MESSAGE_FIRM_MODALS if message and not procedural else FIRM_MODALS
+
 
 CODE_SPAN = re.compile(r"``[^`\n]+``|`[^`\n]+`")
 # A task-list item opens with `[ ]` or `[x]` after its marker.

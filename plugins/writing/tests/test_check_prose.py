@@ -40,6 +40,7 @@ class Case:
     hard: set[str] = field(default_factory=set)
     soft: set[str] = field(default_factory=set)
     absent: set[str] = field(default_factory=set)
+    message: bool = False
 
 
 CASES = [
@@ -137,6 +138,48 @@ CASES = [
         hard={"MODAL"},
     ),
     Case("a bold line does not set the register", f"**Setup**\n\n{LONG_EXPLANATION}\n", 0, soft={"LENGTH-READ"}, absent={"LENGTH"}),
+    Case("present perfect is a violation", "The team has built the tests.\n", 1, hard={"PRESENT-PERFECT"}),
+    Case("past perfect is not present perfect", "The team had built the tests.\n", 0, absent={"PRESENT-PERFECT"}),
+    Case(
+        "unreal past is not present perfect",
+        "The variables would have been documented in the first PR.\n",
+        0,
+        soft={"MODAL-READ"},
+        absent={"PRESENT-PERFECT"},
+    ),
+    Case(
+        "negated unreal past is not present perfect",
+        "The job would not have built the image.\n",
+        0,
+        soft={"MODAL-READ"},
+        absent={"PRESENT-PERFECT"},
+    ),
+    Case("adverb inside a present perfect", "The team has not yet started the build.\n", 1, hard={"PRESENT-PERFECT"}),
+    Case(
+        "modal and adverb before have is not present perfect",
+        "The tool would also have been slow.\n",
+        0,
+        soft={"MODAL-READ"},
+        absent={"PRESENT-PERFECT"},
+    ),
+    Case(
+        "message instruction keeps the ban on present perfect",
+        "## Steps\n\nInstall the tool that has been built.\n",
+        1,
+        hard={"PRESENT-PERFECT"},
+        message=True,
+    ),
+    Case("noun after has is not a perfect", "The service has speed limits.\n", 0, absent={"PRESENT-PERFECT"}),
+    Case(
+        "procedure keeps the past perfect",
+        "## Steps\n\nRun the suite after the team had built the image.\n",
+        1,
+        hard={"PRESENT-PERFECT"},
+    ),
+    Case("message can use present perfect", "I have requested edit access.\n", 0, absent={"PRESENT-PERFECT"}, message=True),
+    Case("message explanation can use should", "Yes, you should flag it.\n", 0, absent={"MODAL"}, message=True),
+    Case("message keeps the ban on may", "They may not want a call.\n", 1, hard={"MODAL"}, message=True),
+    Case("message instruction keeps the ban on should", "Run the tests and you should see a pass.\n", 1, hard={"MODAL"}, message=True),
 ]
 
 
@@ -169,7 +212,7 @@ def verdict(name: str, ok: bool, output: str) -> bool:
 def main() -> None:
     results: list[bool] = []
     for case in CASES:
-        output, code = run(["--stdin"], case.text)
+        output, code = run(["--stdin", "--message"] if case.message else ["--stdin"], case.text)
         hard, soft = rules_of(output)
         ok = code == case.exit_code and case.hard <= hard and case.soft <= soft and not (case.absent & (hard | soft))
         results.append(verdict(case.name, ok, output))

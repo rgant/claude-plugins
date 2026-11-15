@@ -135,7 +135,8 @@ description, an issue or a ticket, a README, a design document, or a plan.
 - An explanation can also use `would` and `could` for a case that is not real,
   and `might` for an outcome that is not certain. `can` states what is
   possible.
-- Neither register uses `should` or `may`. A requirement becomes `must`. A
+- Neither register uses `should` or `may`, except that an explanation in a
+  message between people can use `should`. A requirement becomes `must`. A
   recommendation becomes an action and the condition that calls for it.
   - Requirement: "The worker must acknowledge the task." Not
     `the worker should acknowledge the task`.
@@ -148,7 +149,8 @@ description, an issue or a ticket, a README, a design document, or a plan.
 ### Both registers
 
 - Simple tenses in docs, comments, plans, and commit messages. No present
-  perfect.
+  perfect. An explanation can use the past perfect for an event before another
+  past event. A procedure uses only the simple tenses.
 - An "-ing" word can be a noun or a modifier: "Retrying costs a call", "the
   failing test", "caching". This is a house exception to STE Rule 3.5.
 - Never start a trailing clause with an "-ing" verb, as in
@@ -160,8 +162,11 @@ description, an issue or a ticket, a README, a design document, or a plan.
   except in a message between people.
 - A message between people is a review body, a PR or issue comment, or a chat
   message. It can use the progressive ("I'm requesting changes") and
-  contractions. Keep short sentences and plain words. Docs, code comments, and
-  PR descriptions use neither contractions nor the progressive.
+  contractions. An explanation in it can also use the present perfect
+  (`I've requested access`) and `should` (`you should flag it`), because a soft
+  recommendation between peers is what the writer means. An instruction in it
+  uses neither. Keep short sentences and plain words. Docs, code comments, and
+  PR descriptions use none of these forms.
 - One word, one meaning, for the whole document. Pick one of `check`, `verify`,
   or `confirm`. Then use no other word for it.
 - Delete words that carry no fact: `simply`, `seamlessly`, `robust`, `powerful`,
