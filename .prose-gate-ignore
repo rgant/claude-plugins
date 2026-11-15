@@ -1,0 +1,3 @@
+# The "before" passages in the full explanation guide break the rules on purpose.
+# plugins/writing/tests/test_explanation_guide.py checks the rest of that file.
+plugins/writing/guides/explanations.md
