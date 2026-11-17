@@ -17,7 +17,8 @@ commits and curates the index by hand.
 
 ## Why this skill exists
 
-The rules live in `${CLAUDE_PLUGIN_ROOT}/standards.md` and are often already in
+The rules live in `${CLAUDE_PLUGIN_ROOT}/standards.md` and
+`${CLAUDE_PLUGIN_ROOT}/guides/writing-for-people.md`, and the first is often already in
 context. They still get missed, because a commit message is written at the end
 of a long session and an abstract rule loses to a concrete example sitting
 closer in context. The near miss is a read of `git log` "to match the repo's
@@ -30,7 +31,7 @@ before showing it.
 
 ## Step 1 — read the rules fresh
 
-Read the "Writing for people" section of `${CLAUDE_PLUGIN_ROOT}/standards.md`.
+Read `${CLAUDE_PLUGIN_ROOT}/guides/writing-for-people.md`.
 Then read `${CLAUDE_PLUGIN_ROOT}/guides/commit-messages.md` and
 `${CLAUDE_PLUGIN_ROOT}/guides/explanations.md`. Together they are the authority. The checklist
 in step 4 comes from them and can lag an edit. If the checklist and the files

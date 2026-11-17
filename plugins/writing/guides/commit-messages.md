@@ -1,6 +1,6 @@
 # Commit messages and pull requests
 
-These rules add to "Writing for people" in `../standards.md`. The
+These rules add to `writing-for-people.md` in this directory. The
 `writing:commit-message` skill applies them.
 
 A commit subject and a PR title keep strict STE, as a procedure does. A commit

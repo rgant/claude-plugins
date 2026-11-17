@@ -42,7 +42,7 @@ from pathlib import Path
 
 WRITING = Path(__file__).resolve().parent.parent
 DEFAULT_GUIDE = WRITING / "guides" / "explanations.md"
-DEFAULT_NEW = [WRITING / "standards.md", DEFAULT_GUIDE]
+DEFAULT_NEW = [WRITING / "standards.md", WRITING / "guides" / "writing-for-people.md", DEFAULT_GUIDE]
 KEY_VARIABLE = "ANTHROPIC_API_KEY"
 PROBE_PROMPT = (
     "Look at everything in your context besides this system prompt. If any text contains the tag "

@@ -68,6 +68,8 @@ def main() -> None:
         (repo / "CLAUDE.md").write_text("Repo rule: keep it small.\n")
         standards = tmp / "standards.md"
         standards.write_text("Shared rule: lead with the outcome.\n")
+        (tmp / "guides").mkdir()
+        (tmp / "guides" / "writing-for-people.md").write_text("People rule: one read.\n")
 
         empty_code, empty_err, _ = run(tmp, "I read the review guide and the project rules.", None)
         none_code, _, _ = run(tmp, "No findings", None)
@@ -80,6 +82,7 @@ def main() -> None:
         ("No findings exits 0", none_code == 0),
         ("a finding exits 0", finding_code == 0),
         ("standards reach AGENTS.md", "Shared rule: lead with the outcome." in with_std and "Repo rule" in with_std),
+        ("the writing guide follows the standards", "People rule: one read." in with_std),
         ("no standards without the variable", "Shared rule" not in without_std and "Repo rule" in without_std),
     ]
     for name, ok in checks:

@@ -7,7 +7,9 @@ from the [writing](../plugins/writing/) plugin, so each rule has one copy.
 
 A plugin cannot load a `CLAUDE.md`. The `writing` plugin puts a short reminder
 in each prompt and loads the full standards when a writing skill runs. To load
-the full rules in every session, use this file.
+the rules that every reply needs in every session, use this file. The rules for
+a document stay in `guides/writing-for-people.md` of the plugin, and the
+standards tell Claude to read that guide before it writes a document.
 
 ## Use it
 

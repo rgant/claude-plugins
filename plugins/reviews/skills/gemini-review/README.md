@@ -99,7 +99,8 @@ starts.
 1. Install agy: `brew install --cask antigravity-cli`.
 2. Run `agy` once and log in with the Google account.
 3. In the Antigravity settings, turn off telemetry and data collection.
-4. Give agy the shared standards. Either set `AGY_REVIEW_STANDARDS` to
-   `plugins/writing/standards.md` in a clone of this repo, or link that file:
-   `ln -s <clone>/plugins/writing/standards.md ~/.gemini/config/AGENTS.md`.
+4. Give agy the shared standards. Set `AGY_REVIEW_STANDARDS` to
+   `plugins/writing/standards.md` in a clone of this repo. The script also adds
+   `guides/writing-for-people.md` from the same folder. A link from
+   `~/.gemini/config/AGENTS.md` to `standards.md` gives agy that file only.
 5. Install this plugin. See the [repo README](../../../../README.md).

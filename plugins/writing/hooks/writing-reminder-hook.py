@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """UserPromptSubmit hook. Restates the writing standards at the end of context.
 
-The full standards are in `standards.md` of this plugin. The explanation rules are in
+The full standards are in `standards.md` of this plugin, and the rules for a document are in
+`guides/writing-for-people.md`. The explanation rules are in
 `guides/explanations-core.md`, and `guides/explanations.md` adds examples for a larger task. A
 writing skill loads them, and the reminder points at each one. Claude
 Opus 5 follows a short restatement near the end of a long prompt better than an early statement
@@ -23,13 +24,14 @@ REMINDER = (
     "Match the length of a document to the task. Do not pad.\n"
     "Lead the final message with the outcome.\n"
     "End a Slack or Teams draft with: Paste the sent version after SENT> so the writing review can learn.\n"
-    "Read {standards} before you write a document, a plan, or a PR description. "
+    "Read {standards} and {people} before you write a document or a PR description. "
     "For a larger explanation, read {full}.\n"
     "</writing_standards>"
 )
 
 PLUGIN_ROOT = os.environ.get("CLAUDE_PLUGIN_ROOT", "")
 STANDARDS = os.path.join(PLUGIN_ROOT, "standards.md")
+PEOPLE = os.path.join(PLUGIN_ROOT, "guides", "writing-for-people.md")
 CORE = os.path.join(PLUGIN_ROOT, "guides", "explanations-core.md")
 FULL = os.path.join(PLUGIN_ROOT, "guides", "explanations.md")
 
@@ -40,7 +42,7 @@ def main() -> None:
             {
                 "hookSpecificOutput": {
                     "hookEventName": "UserPromptSubmit",
-                    "additionalContext": REMINDER.format(standards=STANDARDS, core=CORE, full=FULL),
+                    "additionalContext": REMINDER.format(standards=STANDARDS, people=PEOPLE, core=CORE, full=FULL),
                 },
             }
         )

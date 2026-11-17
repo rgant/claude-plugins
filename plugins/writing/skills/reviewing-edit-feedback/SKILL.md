@@ -38,7 +38,8 @@ Run each step as its own command, in order. While a record is pending, `done` re
 1. Run `extract --fetch`. It adds the new pairs and fetches the finals of merged PRs and of
    tickets older than 7 days. Report each `skipped`, `unreadable`, and `fetch failed` line to the
    user. If no such line appears, say so in one line.
-2. Read all of `${CLAUDE_PLUGIN_ROOT}/standards.md` and
+2. Read all of `${CLAUDE_PLUGIN_ROOT}/standards.md`,
+   `${CLAUDE_PLUGIN_ROOT}/guides/writing-for-people.md` and
    `${CLAUDE_PLUGIN_ROOT}/guides/explanations.md`. You classify against these rules, so read them
    before the first record.
 3. Run `labels`. It lists each correction label with the count of each cause.

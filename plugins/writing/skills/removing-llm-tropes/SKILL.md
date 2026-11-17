@@ -63,7 +63,7 @@ Run both phases in order. Do not merge, skip, or reverse them.
 1. Read `${CLAUDE_PLUGIN_ROOT}/guides/explanations.md` in full.
 2. Create a complete draft in private working context. Write each explanation
    to the rules of that guide. A procedure keeps the procedure register of
-   `${CLAUDE_PLUGIN_ROOT}/standards.md`.
+   `${CLAUDE_PLUGIN_ROOT}/guides/writing-for-people.md`.
 3. Do not read `references/whip.md` or the trope reference until the complete
    first-pass draft exists.
 

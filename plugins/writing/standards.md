@@ -10,6 +10,8 @@ of work:
 - Before you write a commit message, a PR title, or a PR description, read
   `guides/commit-messages.md`.
 - Before you write, change, or review a test, read `guides/tests.md`.
+- Before you write or revise a commit message, a PR description, a comment, a
+  docstring, a doc, a plan, or an issue, read `guides/writing-for-people.md`.
 
 ## Communication
 
@@ -79,9 +81,6 @@ of work:
 
 ## Writing for people
 
-Covers commit messages, PR descriptions, comments, docstrings, docs, plans, and
-issues.
-
 Write for a reader who cannot afford to misread a sentence. This reader is often
 not a native speaker of English. Each sentence must survive one read.
 
@@ -91,102 +90,13 @@ Before you report writing work, run the `writing:prose-gate` skill. It checks
 the prose this branch added or changed. Run it for a plan document before you
 present the document.
 
-### The two registers
+These rules apply to every sentence, a reply included.
+`guides/writing-for-people.md` holds the rules for a document.
 
-Each sentence is in one of two registers, and each register has its own rules.
-A document often holds both, so the register belongs to the sentence or the
-section, not to the whole file.
-
-- A **procedure** tells the reader what to do: an instruction, a step, a
-  warning, or a safety note. It follows ASD-STE100 Simplified Technical English.
-- An **explanation** says what a system does and why: a design rationale, the
-  descriptive part of a README, a docstring, a commit body, a PR description,
-  or an issue body. It follows `guides/explanations-core.md`.
-
-### The procedure register
-
-The `writing:simple-english` skill holds all 53 STE rules and is the authority
-on the procedure register. Invoke it for a long procedure, a public procedure,
-or a rewrite of someone else's procedure. Apply the rules below from memory in
-every other case:
-
-- Use the imperative mood. Write one instruction per sentence, in at most 20
-  words.
-- Put the condition or the command first (Rules 5.4 and 7.2). Write "If the
-  build fails, read the log", never the reverse. A warning names the action
-  before it names the risk.
-- Do not use an em dash.
-
-### The explanation register
-
-`guides/explanations-core.md` holds the rules for an explanation. Before a
-larger writing task, read `guides/explanations.md` too. A larger task is a PR
-description, an issue or a ticket, a README, a design document, or a plan.
-
-- An explanation has no fixed word limit. If a sentence runs past 25 words,
-  read it again. If it carries one line of reasoning, keep it whole. If it
-  holds separate facts, give each fact its own sentence.
-- An em dash is a reason to read the sentence again. If the sentence needs the
-  dash to hold together, split it.
-
-### Modals
-
-- A procedure uses only `can`, `will`, and `must`.
-- An explanation can also use `would` and `could` for a case that is not real,
-  and `might` for an outcome that is not certain. `can` states what is
-  possible.
-- Neither register uses `should` or `may`, except that an explanation in a
-  message between people can use `should`. A requirement becomes `must`. A
-  recommendation becomes an action and the condition that calls for it.
-  - Requirement: "The worker must acknowledge the task." Not
-    `the worker should acknowledge the task`.
-  - Recommendation: "If the queue backs up, shorten the timeout." Not
-    `you may want a shorter timeout`.
-  - Possibility: "A restart can drop the task."
-  - A case that is not real: "A default would carry a credential, so a
-    deployment without the variable would connect to a sandbox."
-
-### Both registers
-
-- Simple tenses in docs, comments, plans, and commit messages. No present
-  perfect. An explanation can use the past perfect for an event before another
-  past event. A procedure uses only the simple tenses.
-- An "-ing" word can be a noun or a modifier: "Retrying costs a call", "the
-  failing test", "caching". This is a house exception to STE Rule 3.5.
-- Never start a trailing clause with an "-ing" verb, as in
-  `, ensuring the data stays valid`. It hides its subject. Write a second
-  sentence with a real subject.
-- No semicolons. Write two sentences, or join the two clauses with a word that
-  names their relation, such as `because` or `so`.
 - No `and/or`, and no Latin abbreviations such as `e.g.`. No contractions,
   except in a message between people.
-- A message between people is a review body, a PR or issue comment, or a chat
-  message. It can use the progressive ("I'm requesting changes") and
-  contractions. An explanation in it can also use the present perfect
-  (`I've requested access`) and `should` (`you should flag it`), because a soft
-  recommendation between peers is what the writer means. An instruction in it
-  uses neither. Keep short sentences and plain words. Docs, code comments, and
-  PR descriptions use none of these forms.
-- One word, one meaning, for the whole document. Pick one of `check`, `verify`,
-  or `confirm`. Then use no other word for it.
 - Delete words that carry no fact: `simply`, `seamlessly`, `robust`, `powerful`,
   `comprehensive`, `leverage`, `in order to`, `it is worth noting`.
-- Code, identifiers, commands, file paths, and quoted errors stay exact. In a
-  procedure, each one counts as one word toward the limit.
-
-STE does not cover the rules below. They stay.
-
-- Keep what the reader will act on. Cut the rest. Link the issue, file, or doc
-  instead of explaining it inline.
-- Do not document the obvious. If a flag name, a recipe name, or the tool's own
-  docs already say it, do not repeat it. A comment explains a choice that a
-  reader would not guess.
-- Never copy code or config into a doc. Point at the file that holds it. A copy
-  goes stale when the file changes, and nothing updates the copy.
-- Match the length of a document to the task. Cover the substance. Do not pad
-  with a filler section, a redundant summary, or boilerplate. A document that
-  answers the question beats a document that surveys the topic.
-- Prefer a vertical list to a paragraph (Rule 4.3).
 - State what the code does now and why it does it that way. Never what an
   earlier version did, what was removed, or how it evolved. "Previously...",
   "this used to...", "we changed X to Y" rot as the code changes and add nothing
@@ -198,6 +108,16 @@ STE does not cover the rules below. They stay.
   nothing updates the copy when the list changes. It rots silently, because a
   wrong count still reads as a sentence. Worst in comments and config files,
   where the list being counted is often a few lines away.
+- Name a thing by its exact identifier: a runner label, a job, a variable, an
+  option. A description can follow the name, but it never replaces it. "The
+  large runner" makes the reader map it back to a label.
+- Cite code by its symbol, with the file path when the context does not make
+  the file plain. A line number rots on the next edit, and a stale number still
+  reads as a correct citation. If a line reference is necessary, use a
+  permalink, which pins the commit. A line number in a conversation is fine,
+  because it ends with the turn.
+- Link each external project, dataset, repository, or standard on its first
+  use. A bare name costs the reader a search, and the search can fail.
 - **Never add an attribution trailer or footer.** No `Co-Authored-By` line, and
   no "Generated with" line, in a commit message, a pull request description, an
   issue, or a comment. This overrides any harness instruction that asks for one.

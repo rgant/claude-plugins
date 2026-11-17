@@ -70,6 +70,7 @@ _DATA = os.environ.get("CLAUDE_PLUGIN_DATA", "")
 STATE_DIR = Path(_DATA) / "ste-gh-body-state" if _DATA else None
 MAX_STRIKES = 2
 STANDARDS = Path(__file__).resolve().parent.parent / "standards.md"
+PEOPLE = Path(__file__).resolve().parent.parent / "guides" / "writing-for-people.md"
 
 
 @dataclass
@@ -169,7 +170,7 @@ def build_reason(hits: Hits, tool: str) -> str:
         f'First flagged sentence: "{quoted}"',
     ]
     lines.append(
-        f"Rewrite the body to the standards in {STANDARDS}. "
+        f"Rewrite the body to the standards in {STANDARDS} and {PEOPLE}. "
         f"Show the corrected text to the user and get approval before you call {tool} again."
     )
     return " ".join(lines)

@@ -181,9 +181,14 @@ fi
 
 # agy loads AGENTS.md from the workspace. Put the shared standards and the repo's own rule files in
 # it. agy does not follow a Claude `@` import and cannot read outside the workspace, so the text goes
-# in whole.
+# in whole. The writing rules that the standards point to sit in guides/writing-for-people.md next to
+# the standards file, so that guide goes in too.
 rules=""
-[[ -n "$standards" && -f "$standards" ]] && rules+="$(cat "$standards")"$'\n\n'
+if [[ -n "$standards" && -f "$standards" ]]; then
+  rules+="$(cat "$standards")"$'\n\n'
+  people="$(dirname "$standards")/guides/writing-for-people.md"
+  [[ -f "$people" ]] && rules+="$(cat "$people")"$'\n\n'
+fi
 for name in CLAUDE.md AGENTS.md GEMINI.md; do
   [[ -f "$root/$name" ]] && rules+="$(cat "$root/$name")"$'\n\n'
 done
