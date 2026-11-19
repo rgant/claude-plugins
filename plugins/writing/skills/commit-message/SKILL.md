@@ -97,6 +97,8 @@ where prior state belongs. Do not over-correct into vagueness.
 
 Answer each of these against the text you just wrote. Revise, then run step 5.
 
+- Does the change need a body at all? If the subject and the diff say
+  everything, as for a small doc edit, cut the body.
 - How many paragraphs are in the body? Prose blocks are the most common failure.
   Lists.
 - Does any sentence explain something a file, comment, or doc in this diff

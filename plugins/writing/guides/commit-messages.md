@@ -16,6 +16,10 @@ this directory.
     which files.
   - Write: "stop triage from re-deciding settled labels". Not: "Triage was
     re-deciding settled labels, so I stopped it."
+- Match the body to the change. If the subject and the diff say everything,
+  write no body. A small doc edit or config change takes only the subject. A
+  body earns its place with a fact that the diff does not show: a reason, a
+  defect in the baseline, or a choice that a reader would question.
 - Commit bodies describe the final code against the previous commit. PR
   descriptions describe it against the base branch. Either way that is the diff
   the reader opens, so the body must match it.
