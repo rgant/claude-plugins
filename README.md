@@ -14,6 +14,8 @@ Install only the plugins you want. Each plugin works on its own.
 - [statusline](plugins/statusline/) is a status line with the folder, git state,
   model, context use, and session tokens. Run `/statusline:setup` after you
   install it.
+- [debugging](plugins/debugging/) holds a debugging method that tests each
+  hypothesis against gathered facts. A `CLAUDE.md` must import its core guide.
 
 A plugin skill runs as `/<plugin>:<skill>`, for example `/writing:prose-gate`.
 
@@ -52,7 +54,7 @@ A plugin cannot load a `CLAUDE.md`. Rob's shared rules are in
 the sessions follow the guides that the shared `CLAUDE.md` loads. It reads the
 transcripts in `~/.claude/projects`, and it appends counts, with no transcript
 text, to `~/.claude/session-audit/totals.jsonl`. Run it by its path. Add
-`--sessions` to list the IDs of the flagged sessions.
+`--sessions` to list each flagged session as the check name and the session ID.
 
 [tools/audit_reminder.py](tools/audit_reminder.py) tells Claude to suggest a
 run when the last one is more than 21 days old. To set it up on a new machine,

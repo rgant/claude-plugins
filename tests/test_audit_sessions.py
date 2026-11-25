@@ -4,9 +4,12 @@
 Run: uv run --no-project --python ">=3.14" tests/test_audit_sessions.py
 """
 
+import contextlib
 import importlib.util
+import io
 import json
 import os
+import re
 import sys
 import tempfile
 from collections.abc import Callable
@@ -19,6 +22,8 @@ audit_sessions = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(audit_sessions)
 
 STAMP = "2026-11-03T10:00:00Z"
+# A line that `--sessions` prints: a check name and a session ID.
+SESSION_LINE = re.compile(r"^(?:tests|debugging) \S+$")
 
 
 def tool_use(name: str, tool_input: dict[str, object]) -> str:
@@ -29,6 +34,20 @@ def tool_use(name: str, tool_input: dict[str, object]) -> str:
 
 def tests_counts(lines: list[str]) -> dict[str, int]:
     return dict(audit_sessions.audit_session(lines, audit_sessions.CHECKS).counts["tests"])
+
+
+def debugging_counts(lines: list[str]) -> dict[str, int]:
+    return dict(audit_sessions.audit_session(lines, audit_sessions.CHECKS).counts["debugging"])
+
+
+def user_prompt(content: object, **extra: object) -> str:
+    """Return one transcript line for a user event."""
+    return json.dumps({"type": "user", "timestamp": STAMP, "message": {"content": content}, **extra})
+
+
+def reply(text: str) -> str:
+    """Return one transcript line for an assistant event with one text block."""
+    return json.dumps({"type": "assistant", "timestamp": STAMP, "message": {"content": [{"type": "text", "text": text}]}})
 
 
 def write_to_test_file_counts_the_pattern(_folder: Path) -> bool:
@@ -80,12 +99,17 @@ def unreadable_transcript_is_listed_and_the_rest_counted(folder: Path) -> bool:
     return ids == ["session"] and unreadable == ["broken"]
 
 
-def run_main(folder: Path, totals: Path) -> int:
+def run_main(folder: Path, totals: Path, *flags: str) -> int:
+    """Run the audit with *totals* as the totals file, then restore the earlier value of the variable."""
+    earlier = os.environ.get("SESSION_AUDIT_TOTALS")
     os.environ["SESSION_AUDIT_TOTALS"] = str(totals)
     try:
-        return audit_sessions.main(["--projects", str(folder / "projects")])
+        return audit_sessions.main(["--projects", str(folder / "projects"), *flags])
     finally:
-        del os.environ["SESSION_AUDIT_TOTALS"]
+        if earlier is None:
+            del os.environ["SESSION_AUDIT_TOTALS"]
+        else:
+            os.environ["SESSION_AUDIT_TOTALS"] = earlier
 
 
 def run_records_each_session_and_no_text(folder: Path) -> bool:
@@ -150,6 +174,61 @@ def cut_short_totals_line_keeps_the_next_run(folder: Path) -> bool:
     return code == 0 and "session" in audit_sessions.recorded_sessions(totals)
 
 
+def debugging_skill_run_counts(_folder: Path) -> bool:
+    lines = [tool_use("Skill", {"skill": "superpowers:systematic-debugging"}), tool_use("Skill", {"skill": "writing:prose-gate"})]
+    return debugging_counts(lines).get("debug_skill") == 1
+
+
+def tool_call_that_names_a_guide_counts(_folder: Path) -> bool:
+    lines = [
+        tool_use("Read", {"file_path": "/clone/plugins/debugging/guides/debugging-core.md"}),
+        tool_use("Read", {"file_path": "/clone/plugins/debugging/guides/debugging.md"}),
+        tool_use("Read", {"file_path": "/home/.claude/plugins/cache/rgant/debugging/0.1.0/guides/debugging.md"}),
+        tool_use("Write", {"file_path": "/clone/plugins/debugging/guides/debugging.md", "content": "x"}),
+        tool_use("Read", {"file_path": "/app/docs/debugging.md"}),
+        tool_use("Read", {"file_path": "guides/tests.md"}),
+    ]
+    return debugging_counts(lines).get("guide_read") == 3
+
+
+def reply_with_hypothesis_table_counts(_folder: Path) -> bool:
+    table = "Facts so far:\n\n| Hypothesis | Fact A |\n| --- | --- |\n| Cache | ✓ |\n"
+    forms = ["| **Hypothesis** | A |", "| `Hypothesis` | A |", "| # | Hypothesis | A |", "| Hypotheses | A |"]
+    lines = [reply(table), reply("The hypothesis is a cache. | not a table |"), *(reply(form) for form in forms)]
+    return debugging_counts(lines).get("table") == 1 + len(forms)
+
+
+def user_prompt_with_bug_word_counts(_folder: Path) -> bool:
+    lines = [
+        user_prompt("The export fails on a large file"),
+        user_prompt([{"type": "text", "text": "Why is the total wrong?"}]),
+        user_prompt("Add a button"),
+        user_prompt("The import is broken", origin={"kind": "human"}),
+        user_prompt("Check why the deploy failed", origin={"kind": "loop"}),
+        user_prompt("<system-reminder>a test failed</system-reminder>Add a button"),
+        user_prompt("Base directory for this skill: debug a failure", isMeta=True),
+        user_prompt("The summary names a bug", isCompactSummary=True),
+        user_prompt("Find why the job fails", isSidechain=True),
+        user_prompt("<task-notification>Agent failed</task-notification>", origin={"kind": "task-notification"}),
+        user_prompt("<local-command-stdout>error</local-command-stdout>"),
+        user_prompt([{"type": "tool_result", "content": "error: failed"}]),
+    ]
+    return debugging_counts(lines).get("bug_words") == 3
+
+
+def sessions_flag_lists_bug_words_with_no_table(folder: Path) -> bool:
+    project = folder / "projects" / "project"
+    project.mkdir(parents=True)
+    (project / "untabled.jsonl").write_text(user_prompt("The job fails") + "\n", encoding="utf-8")
+    tabled = [user_prompt("The job fails"), reply("| Hypothesis | Fact |\n| --- | --- |\n")]
+    (project / "tabled.jsonl").write_text("\n".join(tabled) + "\n", encoding="utf-8")
+    out = io.StringIO()
+    with contextlib.redirect_stdout(out):
+        code = run_main(folder, folder / "totals.jsonl", "--sessions")
+    listed = [line for line in out.getvalue().splitlines() if SESSION_LINE.match(line)]
+    return code == 0 and listed == ["debugging untabled"]
+
+
 def empty_projects_records_nothing(folder: Path) -> bool:
     (folder / "projects").mkdir()
     totals = folder / "audit" / "totals.jsonl"
@@ -169,6 +248,11 @@ CASES: list[tuple[str, Callable[[Path], bool]]] = [
     ("a call pattern does not match a longer word", call_patterns_skip_longer_words),
     ("a JavaScript test file counts as a test file", javascript_test_files_count),
     ("a cut-short totals line does not swallow the next run", cut_short_totals_line_keeps_the_next_run),
+    ("a run of systematic-debugging counts", debugging_skill_run_counts),
+    ("a Read of a debugging guide counts, and a write or another file does not", tool_call_that_names_a_guide_counts),
+    ("a reply with a Hypothesis table counts, in each common form", reply_with_hypothesis_table_counts),
+    ("a user prompt with a bug word counts, and a subagent brief or other user event does not", user_prompt_with_bug_word_counts),
+    ("--sessions lists a session with bug words and no table", sessions_flag_lists_bug_words_with_no_table),
 ]
 
 

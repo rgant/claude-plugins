@@ -6,9 +6,13 @@ due. The audit reads each transcript under `~/.claude/projects`, one line at a t
 transcript counts as its own session, because a subagent loads the same CLAUDE.md and its edits do
 not appear in the parent transcript.
 
-Each entry in `CHECKS` counts things in one transcript event. The `tests` check counts the added
-lines of a test-file edit that hold a pattern which `plugins/writing/guides/tests.md` warns about.
-A mock of a third-party SDK is correct, so a count is a reason to read the session, not a fault.
+Each entry in `CHECKS` counts things in one transcript event, and its `flagged` function names the
+sessions that `--sessions` lists. The `tests` check counts the added lines of a test-file edit that
+hold a pattern which `plugins/writing/guides/tests.md` warns about. A mock of a third-party SDK is
+correct, so a count is a reason to read the session, not a fault. The `debugging` check counts a run
+of `systematic-debugging`, a Read of a debugging guide, a reply with the hypothesis
+table that `plugins/debugging/guides/debugging-core.md` asks for, and a user prompt with a bug word.
+A session with bug words and no table is a reason to read it.
 
 Transcripts hold client text. So the audit prints to the terminal, and it writes counts only to
 the totals file, never text from a transcript. Claude Code deletes a transcript after about 30
@@ -50,8 +54,26 @@ TEST_PATTERNS = {
     "as unknown as": re.compile(r"\bas unknown as\b"),
 }
 
+# A user prompt counts as a bug prompt when it holds one of these words.
+BUG_WORDS = re.compile(
+    r"\b(?:bugs?|broken|breaks?|crash(?:es|ed)?|debug|errors?|fail(?:s|ed|ing|ure)?|hangs?|leaks?|mismatch|regression|wrong)\b",
+    re.IGNORECASE,
+)
+# A clone has `debugging/guides/`, and a marketplace install has a version folder between them.
+DEBUG_GUIDE = re.compile(r"debugging/(?:[^/]+/)?guides/debugging(?:-core)?\.md$")
+# A Markdown table row whose first cell is `Hypothesis`, after an optional `#` cell. The word can be
+# plural, bold or in backticks, because a model copies the backticks of the core guide.
+TABLE_HEADER = re.compile(r"^\s*\|(?:\s*#\s*\|)?\s*[*`]*Hypothes[ie]s[*`]*\s*\|", re.MULTILINE)
+# Text that Claude Code adds to a prompt, which the user did not type.
+ADDED_TEXT = re.compile(r"<system-reminder>.*?</system-reminder>", re.DOTALL)
+
 type Event = dict[str, object]
-type Check = Callable[[Event], Counter[str]]
+
+
+@dataclass(frozen=True)
+class Check:
+    count: Callable[[Event], Counter[str]]
+    flagged: Callable[[Counter[str]], bool]
 
 
 @dataclass(frozen=True)
@@ -133,7 +155,53 @@ def tests_check(event: Event) -> Counter[str]:
     return counts
 
 
-CHECKS: dict[str, Check] = {"tests": tests_check}
+def message_texts(event: Event, kind: str) -> Iterator[str]:
+    """Yield the text of an event of *kind*: a string content, or each `text` block of a list content."""
+    message = event.get("message")
+    if event.get("type") != kind or not isinstance(message, dict):
+        return
+    content = message.get("content")
+    if isinstance(content, str):
+        yield content
+    elif isinstance(content, list):
+        for block in content:
+            if isinstance(block, dict) and block.get("type") == "text" and isinstance(block.get("text"), str):
+                yield block["text"]
+
+
+def typed_prompt(event: Event) -> str:
+    """Return the text that the user typed in a user event, or an empty string for an event that Claude Code made.
+
+    A subagent's prompt is a brief that Claude wrote, and its events carry `isSidechain`. A prompt that
+    the user typed has the origin kind `human` or no origin. Any other kind, such as
+    `task-notification` for a background task's result, comes from Claude Code.
+    """
+    origin = event.get("origin")
+    if origin is not None and not (isinstance(origin, dict) and origin.get("kind") == "human"):
+        return ""
+    if event.get("isMeta") or event.get("isCompactSummary") or event.get("isSidechain"):
+        return ""
+    texts = [ADDED_TEXT.sub("", text) for text in message_texts(event, "user")]
+    return "\n".join(text for text in texts if not text.lstrip().startswith("<local-command"))
+
+
+def debugging_check(event: Event) -> Counter[str]:
+    """Count the signs that a session debugged, and the signs that it followed the debugging guide."""
+    counts: Counter[str] = Counter()
+    for name, tool_input in tool_uses(event):
+        skill = tool_input.get("skill")
+        counts["debug_skill"] += name == "Skill" and isinstance(skill, str) and skill.endswith("systematic-debugging")
+        path = tool_input.get("file_path")
+        counts["guide_read"] += name == "Read" and isinstance(path, str) and bool(DEBUG_GUIDE.search(path))
+    counts["table"] += any(TABLE_HEADER.search(text) for text in message_texts(event, "assistant"))
+    counts["bug_words"] += bool(BUG_WORDS.search(typed_prompt(event)))
+    return +counts
+
+
+CHECKS: dict[str, Check] = {
+    "tests": Check(count=tests_check, flagged=lambda counts: counts["flagged"] > 0),
+    "debugging": Check(count=debugging_check, flagged=lambda counts: counts["bug_words"] > 0 and counts["table"] == 0),
+}
 
 
 def audit_session(lines: Iterable[str], checks: Mapping[str, Check]) -> SessionResult:
@@ -157,7 +225,7 @@ def audit_session(lines: Iterable[str], checks: Mapping[str, Check]) -> SessionR
         if not started and isinstance(stamp, str):
             started = stamp
         for name, check in checks.items():
-            counts[name].update(check(event))
+            counts[name].update(check.count(event))
     return SessionResult(started=started, skipped=skipped, counts=counts)
 
 
@@ -259,7 +327,7 @@ def totals_path() -> Path:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--projects", type=Path, default=DEFAULT_PROJECTS, help="the folder of transcripts")
-    parser.add_argument("--sessions", action="store_true", help="also print the ID of each session with a flagged line")
+    parser.add_argument("--sessions", action="store_true", help="also print the check name and the ID of each flagged session")
     args = parser.parse_args(argv)
     unreadable: list[str] = []
     current = dict(audit_projects(args.projects, CHECKS, unreadable))
@@ -267,9 +335,10 @@ def main(argv: list[str] | None = None) -> int:
         print(f"No transcript found under {args.projects}. Nothing was recorded.", file=sys.stderr)
         return 1
     if args.sessions:
-        for session_id, result in current.items():
-            if any(counts["flagged"] for counts in result.counts.values()):
-                print(session_id)
+        for name, check in CHECKS.items():
+            for session_id, result in current.items():
+                if check.flagged(result.counts[name]):
+                    print(f"{name} {session_id}")
     totals = totals_path()
     record(current, totals)
     print(report(monthly(recorded_sessions(totals).values()), CHECKS))

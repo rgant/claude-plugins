@@ -19,6 +19,11 @@
       "name": "statusline",
       "source": "./plugins/statusline",
       "description": "A status line with the folder, git state, model, context use, and session tokens."
+    },
+    {
+      "name": "debugging",
+      "source": "./plugins/debugging",
+      "description": "A debugging method that tests each hypothesis against gathered facts."
     }
   ]
 }

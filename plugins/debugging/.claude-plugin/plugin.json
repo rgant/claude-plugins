@@ -1,0 +1,7 @@
+{
+  "name": "debugging",
+  "description": "A debugging method that tests each hypothesis against gathered facts.",
+  "author": {
+    "name": "J Rob Gant"
+  }
+}
