@@ -46,6 +46,23 @@ next session start, or after `/reload-plugins` in a session
 A plugin cannot load a `CLAUDE.md`. Rob's shared rules are in
 [claude-md/](claude-md/README.md), to copy or to import.
 
+## Session audit
+
+[tools/audit_sessions.py](tools/audit_sessions.py) counts, for each month, how
+the sessions follow the guides that the shared `CLAUDE.md` loads. It reads the
+transcripts in `~/.claude/projects`, and it appends counts, with no transcript
+text, to `~/.claude/session-audit/totals.jsonl`. Run it by its path. Add
+`--sessions` to list the IDs of the flagged sessions.
+
+[tools/audit_reminder.py](tools/audit_reminder.py) tells Claude to suggest a
+run when the last one is more than 21 days old. To set it up on a new machine,
+add a `SessionStart` hook to `~/.claude/settings.json` with this command and a
+`timeout` of 5:
+
+`uv run --no-project --quiet --python ">=3.14" "$HOME/Programming/claude-plugins/tools/audit_reminder.py"`
+
+Use the path of your clone.
+
 ## Layout
 
 - [.claude-plugin/marketplace.json](.claude-plugin/marketplace.json) lists the
@@ -58,6 +75,8 @@ A plugin cannot load a `CLAUDE.md`. Rob's shared rules are in
   `${CLAUDE_PLUGIN_DATA}`.
 - `tests/` holds checks for the whole repo. Each plugin keeps its own tests in
   its own `tests/` folder.
+- `tools/` holds Rob's session audit and its reminder. They serve Rob, so they
+  belong to no plugin.
 
 ## Checks
 
@@ -66,8 +85,8 @@ CI runs these checks on each push. Run them locally before a pull request:
 - `claude plugin validate .`
 - `uvx ruff check .` and `uvx ruff format --check .`
 - `shellcheck` on each `.sh` file, and `actionlint`
-- `uv run --no-project --python ">=3.14" tests/test_no_private_paths.py`
-- Each `test_*.py` script in a plugin `tests/` folder, run the same way
+- Each `test_*.py` script in `tests/` and in a plugin `tests/` folder, run with
+  `uv run --no-project --python ">=3.14"`
 
 ## License
 

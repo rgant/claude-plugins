@@ -5,4 +5,5 @@ These standards come from the `writing` plugin in this repo. Each import below r
 @../plugins/writing/standards.md
 @../plugins/writing/guides/explanations-core.md
 @../plugins/writing/guides/plans.md
+@../plugins/writing/guides/tests.md
 @../plugins/writing/guides/code-review.md

@@ -1,9 +1,17 @@
 # Shared CLAUDE.md
 
 [CLAUDE.md](CLAUDE.md) holds Rob Gant's shared rules for Claude Code: the
-writing standards, the explanation guide, the plan guide, and the code
-review guide. It imports them
-from the [writing](../plugins/writing/) plugin, so each rule has one copy.
+writing standards, the explanation guide, the plan guide, the tests guide, and
+the code review guide. It imports them from the
+[writing](../plugins/writing/) plugin, so each rule has one copy.
+
+This file imports a guide that a task needs, instead of a pointer such as "read
+`guides/tests.md`", because Claude often does not follow a pointer. The pointer
+to the tests guide led to a read in 8 of the 18 sessions that edited a test
+file, so this file imports that guide. A hook that adds the pointer on each
+test-file edit would cost nothing in other sessions, but it would need new hook
+code to reach as far as one import line. `standards.md` keeps its pointer, so a
+reader who loads `standards.md` without this file still finds the guide.
 
 A plugin cannot load a `CLAUDE.md`. The `writing` plugin puts a short reminder
 in each prompt and loads the full standards when a writing skill runs. To load

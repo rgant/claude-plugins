@@ -33,8 +33,14 @@ jobs:
       - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
       - name: Install Python
         run: uv python install ${{ matrix.python }}
-      - name: Private paths
-        run: uv run --no-project --python ${{ matrix.python }} tests/test_no_private_paths.py
+      - name: Repo tests
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          for test in tests/test_*.py; do
+            echo "== $test"
+            uv run --no-project --python ${{ matrix.python }} "$test"
+          done
       - name: Plugin tests
         run: |
           set -euo pipefail
