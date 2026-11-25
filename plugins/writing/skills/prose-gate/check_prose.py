@@ -192,9 +192,10 @@ AGENT_INSTRUCTION_FILES = frozenset({"claude.md", "agents.md", "gemini.md"})
 # A generated file carries prose nobody wrote by hand. A changelog holds commit subjects, and the
 # next release rewrites the whole file. `--files` still checks one on request.
 GENERATED_FILES = frozenset({"changelog.md"})
-# A repository lists its own third-party prose here, one glob per line, `#` for a comment. A
-# vendored document is somebody else's writing, and a rewrite of it breaks what it vendors.
-# `--files` still checks one on request.
+# A repository lists the prose that no person reads here, one glob per line, `#` for a comment.
+# A vendored document is somebody else's writing, and a rewrite of it breaks what it vendors. A
+# model prompt addresses a model, as an agent instruction file does, and a rewrite of it changes
+# what the model does. `--files` still checks one on request.
 IGNORE_FILE = ".prose-gate-ignore"
 
 
@@ -271,7 +272,7 @@ def changed_lines(base: str) -> dict[str, set[int]]:
 
 
 def _ignore_patterns() -> list[str]:
-    """Read the repository's own list of vendored prose. An absent list ignores nothing."""
+    """Read the repository's own list of ignored prose. An absent list ignores nothing."""
     root = _run(["git", "rev-parse", "--show-toplevel"]).strip()
     if not root:
         return []

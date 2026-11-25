@@ -40,6 +40,9 @@ the default branch. Staged, unstaged, and untracked files are all in scope.
   the ones inside them. To check one anyway, name it with `--files`.
 - A generated file never appears either. `CHANGELOG.md` holds commit subjects,
   and the next release rewrites it. Fix the commit subject, not the changelog.
+- A path that matches a glob in the repository's `.prose-gate-ignore` never
+  appears. List vendored prose there, and each model prompt. A model prompt
+  addresses a model, so a rewrite of it changes what the model does.
 - Exit 1 means a hard rule broke. Fix every one.
 - The `READ AND JUDGE` group needs your eyes. A trailing `when` clause can be
   correct English.
