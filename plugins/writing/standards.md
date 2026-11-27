@@ -32,6 +32,11 @@ of work:
   Whether a document prints a key is not.
 - Check a claim you can check with a program. Then make that check a test,
   because a proof inside a report dies with the report.
+- A subagent report is a summary, and a summary can drop a qualifier. Before
+  you publish a number or a quote from a subagent report, search the source for
+  its exact text. Read the lines around the match, because a qualifier often
+  sits there. When a subagent reads a source for you, ask for each number and
+  quote verbatim. Ask for the words around it too, so the search can find it.
 
 ## Principles
 
