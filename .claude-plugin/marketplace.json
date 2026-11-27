@@ -24,6 +24,11 @@
       "name": "debugging",
       "source": "./plugins/debugging",
       "description": "A debugging method that tests each hypothesis against gathered facts."
+    },
+    {
+      "name": "delegation",
+      "source": "./plugins/delegation",
+      "description": "Rules for when to give work to a fork or to a fresh subagent."
     }
   ]
 }

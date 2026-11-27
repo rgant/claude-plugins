@@ -12,13 +12,21 @@ hold a pattern which `plugins/writing/guides/tests.md` warns about. A mock of a 
 correct, so a count is a reason to read the session, not a fault. The `debugging` check counts a run
 of `systematic-debugging`, a Read of a debugging guide, a reply with the hypothesis
 table that `plugins/debugging/guides/debugging-core.md` asks for, and a user prompt with a bug word.
-A session with bug words and no table is a reason to read it.
+A session with bug words and no table is a reason to read it. The `delegation` check counts each
+Agent call as a fork or a fresh subagent. It also counts each fresh call whose brief asks for a plan,
+a design or a choice, because `plugins/delegation/guides/delegation-core.md` gives that work to a
+fork. `JUDGMENT_ASK` says which briefs count. A session with such a call is a reason to read it.
+
+A fork transcript copies its parent's history up to the call that started it. The audit cuts that
+history off, so the parent's events count once.
 
 Transcripts hold client text. So the audit prints to the terminal, and it writes counts only to
 the totals file, never text from a transcript. Claude Code deletes a transcript after about 30
 days, so one run sees only part of a month. Each run appends the counts of every session it can
 read, keyed by session ID. The report rebuilds each month from the union of all runs, and the
-newest record of a session wins, so no session counts twice. The environment variable
+newest record of a session wins, so no session counts twice. A change to a check therefore
+corrects a record only while its transcript exists. A record of a deleted transcript keeps the
+counts of the version that wrote it. The environment variable
 `SESSION_AUDIT_TOTALS` names another totals file, which the tests use.
 
 A line that is not JSON, and a user or assistant event with no `message`, add 1 to the skipped
@@ -64,6 +72,19 @@ DEBUG_GUIDE = re.compile(r"debugging/(?:[^/]+/)?guides/debugging(?:-core)?\.md$"
 # A Markdown table row whose first cell is `Hypothesis`, after an optional `#` cell. The word can be
 # plural, bold or in backticks, because a model copies the backticks of the core guide.
 TABLE_HEADER = re.compile(r"^\s*\|(?:\s*#\s*\|)?\s*[*`]*Hypothes[ie]s[*`]*\s*\|", re.MULTILINE)
+# A subagent brief that asks for judgment, which rule 1 of
+# `plugins/delegation/guides/delegation-core.md` gives to a fork. The verb must open a sentence or a
+# list item and take an object, as in "Decide whether" or "Plan the". A bare word would match
+# document labels, such as "Design:" or "the plan", in briefs that only implement. This form misses
+# a judgment brief phrased as a question, so a count is a lower bound and a reason to read.
+JUDGMENT_ASK = re.compile(
+    r"(?:^|[.!?:]\s+)(?:[-*]\s+|\d+\.\s+)?(?:plan|design|decide|propose|recommend|choose|pick)\s+"
+    r"(?:the|a|an|how|which|what|whether|one|between)\b",
+    re.IGNORECASE | re.MULTILINE,
+)
+# These agents only read, so a judgment word in their brief names what to report, such as the
+# recommendations of an article, not a decision to make.
+READ_ONLY_AGENTS = frozenset({"web-fetch", "Explore", "claude-code-guide"})
 # Text that Claude Code adds to a prompt, which the user did not type.
 ADDED_TEXT = re.compile(r"<system-reminder>.*?</system-reminder>", re.DOTALL)
 
@@ -198,9 +219,36 @@ def debugging_check(event: Event) -> Counter[str]:
     return +counts
 
 
+def delegation_check(event: Event) -> Counter[str]:
+    """Count each Agent call as a fork or a fresh subagent, and each fresh call whose brief asks for judgment.
+
+    A call with no ``subagent_type`` starts the default agent, which is fresh. A call to the
+    ``Plan`` agent counts as ``plan_agent`` and not as judgment, because rule 1 of the delegation
+    core gives each competing plan to that agent. Each session with such a call is flagged, so a
+    reader can check whether a plan missed a decision that the session settled.
+    """
+    counts: Counter[str] = Counter()
+    for name, tool_input in tool_uses(event):
+        if name != "Agent":
+            continue
+        kind = tool_input.get("subagent_type")
+        if kind == "fork":
+            counts["fork"] += 1
+            continue
+        counts["fresh"] += 1
+        if kind == "Plan":
+            counts["plan_agent"] += 1
+            continue
+        prompt = tool_input.get("prompt")
+        asks = kind not in READ_ONLY_AGENTS and isinstance(prompt, str) and bool(JUDGMENT_ASK.search(prompt))
+        counts["fresh_judgment"] += asks
+    return +counts
+
+
 CHECKS: dict[str, Check] = {
     "tests": Check(count=tests_check, flagged=lambda counts: counts["flagged"] > 0),
     "debugging": Check(count=debugging_check, flagged=lambda counts: counts["bug_words"] > 0 and counts["table"] == 0),
+    "delegation": Check(count=delegation_check, flagged=lambda counts: counts["fresh_judgment"] + counts["plan_agent"] > 0),
 }
 
 
@@ -237,12 +285,60 @@ def transcripts(projects: Path) -> Iterator[tuple[str, Path]]:
         yield f"{path.parent.parent.name}/{path.stem}", path
 
 
-def audit_projects(projects: Path, checks: Mapping[str, Check], unreadable: list[str]) -> Iterator[tuple[str, SessionResult]]:
-    """Audit each transcript under *projects*, one line at a time. Add the ID of each file that cannot be read to *unreadable*."""
+def fork_spawn_id(path: Path) -> str:
+    """Return the ID of the call that started a fork transcript, or an empty string for any other transcript.
+
+    Claude Code writes `<agent>.meta.json` beside a subagent transcript. A fork has `isFork`, and
+    `toolUseId` names the parent's Agent call that started it.
+    """
+    try:
+        meta = json.loads(path.with_suffix(".meta.json").read_text(encoding="utf-8"))
+    except OSError, ValueError:
+        return ""
+    spawn = meta.get("toolUseId") if isinstance(meta, dict) and meta.get("isFork") is True else None
+    return spawn if isinstance(spawn, str) else ""
+
+
+def after_spawn(lines: list[str], spawn_id: str) -> list[str] | None:
+    """Return the lines after the event that holds the call *spawn_id*, or None when no event holds it.
+
+    A fork transcript copies its parent's history up to and including the call that started it,
+    and the parent's transcript counts that history already.
+    """
+    for index, line in enumerate(lines):
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        message = event.get("message") if isinstance(event, dict) else None
+        content = message.get("content") if isinstance(message, dict) else None
+        if isinstance(content, list) and any(isinstance(block, dict) and block.get("id") == spawn_id for block in content):
+            return lines[index + 1 :]
+    return None
+
+
+def audit_projects(
+    projects: Path, checks: Mapping[str, Check], unreadable: list[str], uncut: list[str] | None = None
+) -> Iterator[tuple[str, SessionResult]]:
+    """Audit each transcript under *projects*. Add the ID of each file that cannot be read to *unreadable*.
+
+    A transcript is read one line at a time, except a fork transcript, which is read whole so that
+    the history it copies from its parent can be cut off. A fork with no spawn call keeps every line,
+    and its ID goes to *uncut*. A drop of the whole session would lose its own counts, so the audit
+    counts the copied history twice and reports that.
+    """
     for session_id, path in transcripts(projects):
+        spawn_id = fork_spawn_id(path)
         try:
             with path.open(encoding="utf-8", errors="replace") as handle:
-                result = audit_session(handle, checks)
+                lines: Iterable[str] = handle
+                if spawn_id:
+                    every = handle.readlines()
+                    cut = after_spawn(every, spawn_id)
+                    if cut is None and uncut is not None:
+                        uncut.append(session_id)
+                    lines = every if cut is None else cut
+                result = audit_session(lines, checks)
         except OSError:
             unreadable.append(session_id)
             continue
@@ -309,12 +405,12 @@ def report(months: Mapping[str, MonthTotals], checks: Iterable[str]) -> str:
     for name in checks:
         keys = sorted({key for month in months.values() for key in month.checks.get(name, {})})
         out.append(f"## {name}\n\nEach cell is sessions / count.\n")
-        out.append("| Month | Sessions | Skipped | " + " | ".join(f"`{key}`" for key in keys) + " |")
+        out.append("| " + " | ".join(["Month", "Sessions", "Skipped", *(f"`{key}`" for key in keys)]) + " |")
         out.append("|" + " --- |" * (len(keys) + 3))
         for month_name, month in months.items():
             check = month.checks.get(name, {})
             cells = [f"{check[key].sessions} / {check[key].count}" if key in check else "0 / 0" for key in keys]
-            out.append(f"| {month_name} | {month.sessions} | {month.skipped} | " + " | ".join(cells) + " |")
+            out.append("| " + " | ".join([month_name, str(month.sessions), str(month.skipped), *cells]) + " |")
         out.append("")
     return "\n".join(out)
 
@@ -330,7 +426,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--sessions", action="store_true", help="also print the check name and the ID of each flagged session")
     args = parser.parse_args(argv)
     unreadable: list[str] = []
-    current = dict(audit_projects(args.projects, CHECKS, unreadable))
+    uncut: list[str] = []
+    current = dict(audit_projects(args.projects, CHECKS, unreadable, uncut))
     if not current:
         print(f"No transcript found under {args.projects}. Nothing was recorded.", file=sys.stderr)
         return 1
@@ -344,6 +441,8 @@ def main(argv: list[str] | None = None) -> int:
     print(report(monthly(recorded_sessions(totals).values()), CHECKS))
     for session_id in unreadable:
         print(f"Could not read the transcript of session {session_id}.")
+    for session_id in uncut:
+        print(f"Fork {session_id} has no spawn call, so its copied history counts twice.")
     return 0
 
 

@@ -23,7 +23,7 @@ SPEC.loader.exec_module(audit_sessions)
 
 STAMP = "2026-11-03T10:00:00Z"
 # A line that `--sessions` prints: a check name and a session ID.
-SESSION_LINE = re.compile(r"^(?:tests|debugging) \S+$")
+SESSION_LINE = re.compile(r"^(?:tests|debugging|delegation) \S+$")
 
 
 def tool_use(name: str, tool_input: dict[str, object]) -> str:
@@ -38,6 +38,10 @@ def tests_counts(lines: list[str]) -> dict[str, int]:
 
 def debugging_counts(lines: list[str]) -> dict[str, int]:
     return dict(audit_sessions.audit_session(lines, audit_sessions.CHECKS).counts["debugging"])
+
+
+def delegation_counts(lines: list[str]) -> dict[str, int]:
+    return dict(audit_sessions.audit_session(lines, audit_sessions.CHECKS).counts["delegation"])
 
 
 def user_prompt(content: object, **extra: object) -> str:
@@ -229,6 +233,101 @@ def sessions_flag_lists_bug_words_with_no_table(folder: Path) -> bool:
     return code == 0 and listed == ["debugging untabled"]
 
 
+def agent_calls_count_as_fork_or_fresh(_folder: Path) -> bool:
+    lines = [
+        tool_use("Agent", {"subagent_type": "fork", "prompt": "Write the tests"}),
+        tool_use("Agent", {"subagent_type": "general-purpose", "prompt": "Find the config"}),
+        tool_use("Agent", {"prompt": "Find the config"}),
+        tool_use("Read", {"file_path": "/clone/README.md"}),
+    ]
+    return delegation_counts(lines) == {"fork": 1, "fresh": 2}
+
+
+def fresh_call_that_asks_for_judgment_counts(_folder: Path) -> bool:
+    lines = [
+        tool_use("Agent", {"subagent_type": "general-purpose", "prompt": "Plan the migration of the cache"}),
+        tool_use("Agent", {"prompt": "Recommend one of the two designs"}),
+        tool_use("Agent", {"subagent_type": "Plan", "prompt": "Plan the migration of the cache"}),
+        tool_use("Agent", {"subagent_type": "fork", "prompt": "Plan the migration of the cache"}),
+        tool_use("Agent", {"subagent_type": "general-purpose", "prompt": "Read the planet page"}),
+        tool_use("Agent", {"prompt": "Implement task 3 of the plan. Design: docs/plans/cache-design.md"}),
+        tool_use("Agent", {"subagent_type": "web-fetch", "prompt": "Report each recommendation of the article"}),
+        tool_use("Agent", {"subagent_type": "Explore", "prompt": "Find the design docs"}),
+        tool_use("Agent", {"subagent_type": "claude-code-guide", "prompt": "Recommend the setting for hooks"}),
+    ]
+    counts = delegation_counts(lines)
+    return counts.get("fresh_judgment") == 2 and counts.get("plan_agent") == 1
+
+
+def sessions_flag_lists_fresh_judgment_and_plan_agent_calls(folder: Path) -> bool:
+    project = folder / "projects" / "project"
+    project.mkdir(parents=True)
+    planned = tool_use("Agent", {"prompt": "Design the retry"})
+    (project / "planned.jsonl").write_text(planned + "\n", encoding="utf-8")
+    plan_agent = tool_use("Agent", {"subagent_type": "Plan", "prompt": "Write plan A for the retry"})
+    (project / "plan-agent.jsonl").write_text(plan_agent + "\n", encoding="utf-8")
+    forked = tool_use("Agent", {"subagent_type": "fork", "prompt": "Design the retry"})
+    (project / "forked.jsonl").write_text(forked + "\n", encoding="utf-8")
+    out = io.StringIO()
+    with contextlib.redirect_stdout(out):
+        code = run_main(folder, folder / "totals.jsonl", "--sessions")
+    listed = sorted(line for line in out.getvalue().splitlines() if SESSION_LINE.match(line))
+    return code == 0 and listed == ["delegation plan-agent", "delegation planned"]
+
+
+def write_fork(folder: Path, spawn_id: str, meta_text: str | None = None) -> None:
+    """Write a fork transcript that copies its parent's history up to the call that started it.
+
+    *meta_text* replaces the `meta.json` that Claude Code writes, for a subagent that is not a fork
+    or a meta file that is broken.
+    """
+    agents = folder / "projects" / "project" / "session" / "subagents"
+    agents.mkdir(parents=True)
+    spawn = {"type": "tool_use", "id": "toolu_spawn", "name": "Agent", "input": {"subagent_type": "fork", "prompt": "Write it"}}
+    lines = [
+        tool_use("Agent", {"prompt": "Find the config"}),
+        json.dumps({"type": "assistant", "timestamp": STAMP, "message": {"content": [spawn]}}),
+        tool_use("Agent", {"prompt": "Read the page"}),
+    ]
+    (agents / "agent-fork.jsonl").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    meta = {"agentType": "fork", "isFork": True, "toolUseId": spawn_id, "parentAgentId": "parent", "spawnDepth": 2}
+    text = json.dumps(meta) if meta_text is None else meta_text
+    (agents / "agent-fork.meta.json").write_text(text, encoding="utf-8")
+
+
+def fork_delegation_counts(folder: Path, uncut: list[str] | None = None) -> dict[str, int]:
+    results = dict(audit_sessions.audit_projects(folder / "projects", audit_sessions.CHECKS, [], uncut))
+    return dict(results["session/agent-fork"].counts["delegation"])
+
+
+def fork_skips_the_history_it_inherits(folder: Path) -> bool:
+    write_fork(folder, "toolu_spawn")
+    return fork_delegation_counts(folder) == {"fresh": 1}
+
+
+def fork_with_no_spawn_call_counts_every_event_and_is_listed(folder: Path) -> bool:
+    write_fork(folder, "toolu_missing")
+    uncut: list[str] = []
+    return fork_delegation_counts(folder, uncut) == {"fork": 1, "fresh": 2} and uncut == ["session/agent-fork"]
+
+
+def subagent_that_is_not_a_fork_keeps_every_event(folder: Path) -> bool:
+    write_fork(folder, "toolu_spawn", json.dumps({"agentType": "general-purpose", "isFork": False, "toolUseId": "toolu_spawn"}))
+    return fork_delegation_counts(folder) == {"fork": 1, "fresh": 2}
+
+
+def broken_meta_file_keeps_every_event(folder: Path) -> bool:
+    write_fork(folder, "toolu_spawn", '{"isFork": true, "toolUseId": ')
+    return fork_delegation_counts(folder) == {"fork": 1, "fresh": 2}
+
+
+def report_of_keyless_check_has_only_month_sessions_skipped(_folder: Path) -> bool:
+    months = {"2026-11": audit_sessions.MonthTotals(sessions=1)}
+    lines = audit_sessions.report(months, ["delegation"]).splitlines()
+    rows = [line for line in lines if line.startswith("|")]
+    return rows == ["| Month | Sessions | Skipped |", "| --- | --- | --- |", "| 2026-11 | 1 | 0 |"]
+
+
 def empty_projects_records_nothing(folder: Path) -> bool:
     (folder / "projects").mkdir()
     totals = folder / "audit" / "totals.jsonl"
@@ -253,6 +352,14 @@ CASES: list[tuple[str, Callable[[Path], bool]]] = [
     ("a reply with a Hypothesis table counts, in each common form", reply_with_hypothesis_table_counts),
     ("a user prompt with a bug word counts, and a subagent brief or other user event does not", user_prompt_with_bug_word_counts),
     ("--sessions lists a session with bug words and no table", sessions_flag_lists_bug_words_with_no_table),
+    ("an Agent call counts as a fork or a fresh subagent, and another tool does not", agent_calls_count_as_fork_or_fresh),
+    ("a fresh judgment call counts, a Plan call counts apart, a fork or reader does not", fresh_call_that_asks_for_judgment_counts),
+    ("--sessions lists a session with a fresh judgment call or a Plan agent call", sessions_flag_lists_fresh_judgment_and_plan_agent_calls),
+    ("a fork transcript skips the history it copies from its parent", fork_skips_the_history_it_inherits),
+    ("a fork transcript with no spawn call counts every event and is listed", fork_with_no_spawn_call_counts_every_event_and_is_listed),
+    ("a subagent that is not a fork keeps every event", subagent_that_is_not_a_fork_keeps_every_event),
+    ("a broken meta file keeps every event", broken_meta_file_keeps_every_event),
+    ("the report of a check with no keys has only Month, Sessions and Skipped", report_of_keyless_check_has_only_month_sessions_skipped),
 ]
 
 

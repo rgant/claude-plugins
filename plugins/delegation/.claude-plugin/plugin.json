@@ -1,0 +1,7 @@
+{
+  "name": "delegation",
+  "description": "Rules for when to give work to a fork or to a fresh subagent.",
+  "author": {
+    "name": "J Rob Gant"
+  }
+}

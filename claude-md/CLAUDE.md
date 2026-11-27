@@ -1,6 +1,6 @@
 # Shared standards
 
-These standards come from the `writing` and `debugging` plugins in this repo. Each import below resolves against this file.
+These standards come from the `writing`, `debugging`, and `delegation` plugins in this repo. Each import below resolves against this file.
 
 @../plugins/writing/standards.md
 @../plugins/writing/guides/explanations-core.md
@@ -11,3 +11,7 @@ These standards come from the `writing` and `debugging` plugins in this repo. Ea
 ## Debugging
 
 @../plugins/debugging/guides/debugging-core.md
+
+## Delegation
+
+@../plugins/delegation/guides/delegation-core.md

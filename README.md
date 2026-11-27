@@ -16,6 +16,8 @@ Install only the plugins you want. Each plugin works on its own.
   install it.
 - [debugging](plugins/debugging/) holds a debugging method that tests each
   hypothesis against gathered facts. A `CLAUDE.md` must import its core guide.
+- [delegation](plugins/delegation/) holds the rules for when Claude gives work
+  to a fork or to a fresh subagent. A `CLAUDE.md` must import its core guide.
 
 A plugin skill runs as `/<plugin>:<skill>`, for example `/writing:prose-gate`.
 
